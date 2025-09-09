@@ -1,4 +1,14 @@
 # conftest.py
+"""
+Pytest fixtures for Playwright tests (sync API).
+
+Features:
+- Use HEADLESS env var to switch headed/headless behavior.
+- Safe Chromium args for CI (--no-sandbox, --disable-dev-shm-usage).
+- ignore_https_errors=True to avoid cert failures in CI.
+- On test failure, save screenshot + HTML to ./test-results/.
+"""
+
 import os
 import pytest
 from pathlib import Path
@@ -9,8 +19,8 @@ BASE_URL = "https://www.smbcgroup.com/"
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     """
-    Pytest hook wrapper so fixtures can inspect the test outcome later (item.rep_call).
-    Must be decorated with hookwrapper=True so pytest executes the generator properly.
+    Hook wrapper so fixtures can inspect the test outcome later (item.rep_call).
+    Must be decorated with hookwrapper=True.
     """
     outcome = yield
     rep = outcome.get_result()
@@ -23,14 +33,17 @@ def playwright_context():
     try:
         yield pw
     finally:
-        pw.stop()
+        try:
+            pw.stop()
+        except Exception:
+            pass
 
 
 @pytest.fixture(scope="session")
 def browser(playwright_context):
     """
-    Launch a single browser instance for the session. Use HEADLESS env var
-    to control headed/headless behavior (CI should set HEADLESS=true).
+    Launch a single Chromium browser for the session.
+    Controlled by HEADLESS env var (default true).
     """
     headless = os.getenv("HEADLESS", "true").lower() in ("1", "true", "yes")
     args = ["--no-sandbox", "--disable-dev-shm-usage"]
@@ -38,14 +51,17 @@ def browser(playwright_context):
     try:
         yield browser
     finally:
-        browser.close()
+        try:
+            browser.close()
+        except Exception:
+            pass
 
 
 @pytest.fixture
 def page(browser, request):
     """
-    Create a fresh context+page for each test. Ignore HTTPS errors (useful in CI).
-    On failure, save a screenshot and page HTML into ./test-results/.
+    Provide a fresh context + page per test.
+    Ignores HTTPS errors (helpful for CI), and on failure saves a screenshot + HTML.
     """
     context = browser.new_context(
         viewport={"width": 1280, "height": 800},
@@ -55,29 +71,4 @@ def page(browser, request):
     try:
         yield page
     finally:
-        # if the test failed, pytest will have attached the call report to request.node
-        rep_call = getattr(request.node, "rep_call", None)
-        if rep_call is not None and rep_call.failed:
-            results_dir = Path("test-results")
-            results_dir.mkdir(parents=True, exist_ok=True)
-            name = request.node.name
-            screenshot_path = results_dir / f"{name}.png"
-            html_path = results_dir / f"{name}.html"
-            try:
-                page.screenshot(path=str(screenshot_path))
-            except Exception as e:
-                print(f"[teardown] failed to take screenshot: {e}")
-            try:
-                html = page.content()
-                html_path.write_text(html, encoding="utf-8")
-            except Exception as e:
-                print(f"[teardown] failed to save page html: {e}")
-        # ensure cleanup
-        try:
-            page.close()
-        except Exception:
-            pass
-        try:
-            context.close()
-        except Exception:
-            pass
+        # If the
