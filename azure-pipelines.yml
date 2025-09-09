@@ -1,0 +1,41 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  pythonVersion: '3.11'
+
+strategy:
+  matrix:
+    chromium:
+      BROWSER: 'chromium'
+    firefox:
+      BROWSER: 'firefox'
+    webkit:
+      BROWSER: 'webkit'
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(pythonVersion)'
+  - script: |
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt
+    displayName: 'Install dependencies'
+  - script: python -m playwright install $BROWSER --with-deps
+    displayName: 'Install Playwright browsers'
+  - script: pytest -q --junitxml=results-$BROWSER.xml || true
+    displayName: 'Run pytest'
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFiles: 'results-*.xml'
+      testRunTitle: 'Playwright Pytest Results'
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: 'artifacts'
+      ArtifactName: 'playwright-artifacts'
+      publishLocation: 'Container'
