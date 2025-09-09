@@ -1,5 +1,5 @@
-# Playwright + Python automation for SMBCGROUP
+# Playwright + Python automation for testing
 
-This repo automates testing of https://www.smbcgroup.com/ with Playwright + Pytest.
+This repo automates testing of dummy site with Playwright + Pytest.
 
 See requirements.txt, conftest.py, and tests/ for details.
