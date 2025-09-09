@@ -6,13 +6,16 @@ from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://www.smbcgroup.com/"
 
+@pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     """
-    Pytest hook used so fixtures can inspect test outcome later (item.rep_call).
+    Pytest hook wrapper so fixtures can inspect the test outcome later (item.rep_call).
+    Must be decorated with hookwrapper=True so pytest executes the generator properly.
     """
     outcome = yield
     rep = outcome.get_result()
     setattr(item, f"rep_{rep.when}", rep)
+
 
 @pytest.fixture(scope="session")
 def playwright_context():
@@ -21,6 +24,7 @@ def playwright_context():
         yield pw
     finally:
         pw.stop()
+
 
 @pytest.fixture(scope="session")
 def browser(playwright_context):
@@ -35,6 +39,7 @@ def browser(playwright_context):
         yield browser
     finally:
         browser.close()
+
 
 @pytest.fixture
 def page(browser, request):
@@ -55,14 +60,12 @@ def page(browser, request):
         if rep_call is not None and rep_call.failed:
             results_dir = Path("test-results")
             results_dir.mkdir(parents=True, exist_ok=True)
-            # safe file names
             name = request.node.name
             screenshot_path = results_dir / f"{name}.png"
             html_path = results_dir / f"{name}.html"
             try:
                 page.screenshot(path=str(screenshot_path))
             except Exception as e:
-                # don't raise during teardown
                 print(f"[teardown] failed to take screenshot: {e}")
             try:
                 html = page.content()
