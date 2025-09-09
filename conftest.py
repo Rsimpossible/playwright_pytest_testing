@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
-BASE_URL = "https://www.smbcgroup.com/"
+BASE_URL = "https://playwright.dev/"
 
 @pytest.fixture(scope="session")
 def playwright_context():
