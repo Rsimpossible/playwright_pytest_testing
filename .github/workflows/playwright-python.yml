@@ -8,12 +8,12 @@ on:
 
 jobs:
   test-matrix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
-        python-version: [3.13]
+        python-version: [3.11]
 
     steps:
       - uses: actions/checkout@v4
