@@ -4,7 +4,7 @@ Pytest fixtures for Playwright tests (sync API).
 
 Features:
 - Use HEADLESS env var to switch headed/headless behavior.
-- Safe Chromium args for CI (--no-sandbox, --disable-dev-shm-usage).
+- Launch Chromium with safe CI args (--no-sandbox, --disable-dev-shm-usage).
 - ignore_https_errors=True to avoid cert failures in CI.
 - On test failure, save screenshot + HTML to ./test-results/.
 """
@@ -33,6 +33,7 @@ def playwright_context():
     try:
         yield pw
     finally:
+        # ensure we stop Playwright even if teardown raises
         try:
             pw.stop()
         except Exception:
@@ -71,4 +72,30 @@ def page(browser, request):
     try:
         yield page
     finally:
-        # If the
+        # If the test failed, pytest attaches rep_call to the request.node
+        rep_call = getattr(request.node, "rep_call", None)
+        if rep_call is not None and rep_call.failed:
+            results_dir = Path("test-results")
+            results_dir.mkdir(parents=True, exist_ok=True)
+            # use test node name for filenames
+            safe_name = request.node.name.replace("/", "_").replace(" ", "_")
+            screenshot_path = results_dir / f"{safe_name}.png"
+            html_path = results_dir / f"{safe_name}.html"
+            try:
+                page.screenshot(path=str(screenshot_path))
+            except Exception as e:
+                print(f"[teardown] failed to take screenshot: {e}")
+            try:
+                html = page.content()
+                html_path.write_text(html, encoding="utf-8")
+            except Exception as e:
+                print(f"[teardown] failed to save page html: {e}")
+        # cleanup
+        try:
+            page.close()
+        except Exception:
+            pass
+        try:
+            context.close()
+        except Exception:
+            pass
