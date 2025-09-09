@@ -18,7 +18,7 @@ def browser(playwright_context):
 
 @pytest.fixture
 def page(browser):
-    context = browser.new_context(viewport={"width": 1280, "height": 800})
+    context = browser.new_context(viewport={"width": 1280, "height": 800},ignore_https_errors=True)
     page = context.new_page()
     yield page
     context.close()
